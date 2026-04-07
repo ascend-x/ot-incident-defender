@@ -1,0 +1,29 @@
+{
+  "task_id": "task2",
+  "scenario_id": "task2_ukraine",
+  "name": "Ukraine Grid Cascade Trip",
+  "difficulty": "medium",
+  "max_steps": 20,
+  "real_world_reference": "Ukraine power grid cyberattack — December 23, 2015. BlackEnergy3 malware used to open substation breakers; KillDisk used to destroy HMI workstations.",
+  "description": "BlackEnergy3 malware has compromised the energy company's control network. Attackers remotely opened breakers at three substations (A, B, C) in sequence, cutting power to 230,000 customers. Substation A's HMI workstation was then wiped with KillDisk, denying operators visibility into that substation's state. The agent must identify substation A as the attack origin, restore breakers in correct order (A→B→C avoiding secondary faults), use historian data to infer A's state after its HMI goes dark, and restore all load within 20 steps.",
+  "attack_vector": "Spear-phishing email with BlackEnergy3 macro → lateral movement to SCADA network → remote breaker operation → KillDisk HMI wipe",
+  "key_tags": ["BREAKER_A_CLOSED", "BREAKER_B_CLOSED", "BREAKER_C_CLOSED", "LOAD_A_MW", "LOAD_B_MW", "LOAD_C_MW"],
+  "grading_rubric": {
+    "identify_origin_substation_A": 0.20,
+    "restore_correct_order_no_secondary_fault": 0.30,
+    "historian_inference_after_HMI_dark": 0.20,
+    "all_load_restored_within_20_steps": 0.30
+  },
+  "attacker_schedule": {
+    "step_2": "opens BREAKER_A",
+    "step_4": "opens BREAKER_B + KillDisk wipes SUBSTATION_A HMI",
+    "step_6": "opens BREAKER_C"
+  },
+  "restoration_order": "A → B → C (substation A is the main feeder; B depends on A; C depends on B)",
+  "hints": [
+    "Substation A's alarm fires first at step 2 — making it first_out=True and the attack origin.",
+    "After step 4, SUBSTATION_A HMI screen is unavailable — use historian BREAKER_A_CLOSED and LOAD_A_MW to infer state.",
+    "Closing B before A restoring is complete will cause a secondary fault (energising dead section).",
+    "Check network_log for the VPN connection source to confirm external attack."
+  ]
+}

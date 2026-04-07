@@ -1,0 +1,35 @@
+name: ot-incident-defender
+version: 0.1.0
+description: >
+  Real-world ICS/OT incident response environment. Agent acts as a SCADA
+  operator responding to cyberattacks modeled on Oldsmar 2021, Ukraine 2015
+  power grid attack, and Stuxnet-pattern false data injection.
+tags:
+  - openenv
+  - ics
+  - scada
+  - cybersecurity
+  - critical-infrastructure
+tasks:
+  - id: task1
+    name: Oldsmar chemical overdose
+    difficulty: easy
+  - id: task2
+    name: Ukraine grid cascade trip
+    difficulty: medium
+  - id: task3
+    name: Stuxnet-pattern FDI attack
+    difficulty: hard
+observation_space:
+  type: object
+  schema: Observation
+action_space:
+  type: object
+  schema: Action
+reward_range: [-0.5, 1.0]
+endpoints:
+  reset: POST /reset
+  step: POST /step
+  state: GET /state
+  tasks: GET /tasks
+  health: GET /health

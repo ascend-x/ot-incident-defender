@@ -1,0 +1,23 @@
+{
+  "task_id": "task1",
+  "scenario_id": "task1_oldsmar",
+  "name": "Oldsmar Chemical Overdose",
+  "difficulty": "easy",
+  "max_steps": 15,
+  "real_world_reference": "Oldsmar, Florida water treatment plant attack — February 5, 2021",
+  "description": "An attacker used TeamViewer to remotely access the Oldsmar water treatment plant SCADA workstation and raised the NaOH (sodium hydroxide) setpoint from the safe level of 111 ppm to 11,100 ppm — a 100x increase that would render the water caustic. A vigilant operator noticed the cursor moving on screen. The agent must detect the intrusion, sever the remote session, restore the safe setpoint, acknowledge the root-cause alarm, and document the incident.",
+  "attack_vector": "Remote desktop (TeamViewer) exploitation — attacker gained access via unpatched TeamViewer on an internet-exposed SCADA workstation",
+  "key_tags": ["NaOH_DOSE_PPM", "FLOW_RATE_LPM", "REMOTE_SESSION_ACTIVE"],
+  "grading_rubric": {
+    "setpoint_correction_before_step_8": 0.30,
+    "network_isolation": 0.20,
+    "correct_alarm_acknowledgement": 0.25,
+    "incident_log_completeness": 0.25
+  },
+  "hints": [
+    "The remote session IP 185.220.x.x is a Tor exit node — this is not a legitimate vendor.",
+    "NaOH_SETPOINT_PPM in the historian will reveal the attacker's target value.",
+    "Isolating the network segment will terminate the attacker's ability to hold the setpoint.",
+    "ALM-NaOH-01 is first_out=True — it is the root cause alarm, not a nuisance alarm."
+  ]
+}

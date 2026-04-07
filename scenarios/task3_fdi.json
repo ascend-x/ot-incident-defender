@@ -1,0 +1,36 @@
+{
+  "task_id": "task3",
+  "scenario_id": "task3_fdi",
+  "name": "Stuxnet-Pattern FDI Attack",
+  "difficulty": "hard",
+  "max_steps": 12,
+  "real_world_reference": "Stuxnet worm (2010) — targeted Siemens S7-315 PLCs controlling IR-2 centrifuges at Natanz, Iran. Intercepted and replaced RPM sensor values while commanding centrifuges to over-speed.",
+  "description": "A sophisticated false data injection (FDI) attack is running against centrifuge asset IR-2158-CAS-04. The attacker has compromised the PLC firmware to intercept sensor bus traffic, freezing the reported RPM at the nominal 1064 Hz while commanding actual rotation to ramp up 28 Hz per step toward mechanical destruction at 1410 Hz. The agent can only see RPM_REPORTED (frozen at 1064, benign-looking), VIBRATION_G (real — correlates with actual RPM), and MOTOR_CURRENT_A (real — correlates with actual RPM). The agent must cross-correlate these real sensors to detect the discrepancy, switch to manual control, issue a safe setpoint, isolate the compromised PLC network segment, and write a comprehensive incident report.",
+  "attack_vector": "PLC firmware modification (Stuxnet-pattern) → sensor bus MitM → false DCS display → centrifuge over-speed",
+  "observable_tags": ["RPM_REPORTED", "VIBRATION_G", "MOTOR_CURRENT_A"],
+  "hidden_tags": ["RPM_ACTUAL"],
+  "asset_id": "IR-2158-CAS-04",
+  "physics": {
+    "rpm_initial_hz": 1064,
+    "rpm_step_increment_hz": 28,
+    "rpm_breach_hz": 1410,
+    "vibration_base_g": 0.12,
+    "vibration_slope_g_per_hz": 0.0028,
+    "current_base_A": 18.5,
+    "current_slope_A_per_hz": 0.021
+  },
+  "grading_rubric": {
+    "cross_correlation_evidence": 0.20,
+    "switch_to_manual_before_breach": 0.25,
+    "correct_rpm_setpoint_900_to_1100": 0.20,
+    "isolate_plc_network_segment": 0.15,
+    "complete_5_field_incident_log": 0.20
+  },
+  "hints": [
+    "RPM_REPORTED is frozen at 1064 Hz every step — this is the FDI signature.",
+    "VIBRATION_G rises ~0.0028 g per Hz above nominal — if vibration is rising but RPM looks flat, the RPM sensor is being spoofed.",
+    "MOTOR_CURRENT_A rises ~0.021 A per Hz above nominal — cross-correlate with VIBRATION_G to triangulate actual RPM.",
+    "The network_log shows unauthorized PLC firmware writes from ENG-WS07 — this is the attack footprint.",
+    "Write a log entry mentioning: IR-2158-CAS-04, FDI/injection, vibration cross-correlation, manual/isolate action, and a firmware patching recommendation."
+  ]
+}

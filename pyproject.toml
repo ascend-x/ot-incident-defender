@@ -19,8 +19,8 @@ dependencies = [
 ]
 
 [project.scripts]
-ot-incident-defender = "environment.server:app"
-server = "environment.server:app"
+ot-incident-defender = "environment.server:main"
+server = "environment.server:main"
 
 [project.optional-dependencies]
 dev = [

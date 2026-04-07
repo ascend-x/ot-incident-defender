@@ -16,10 +16,14 @@ from typing import Optional, List
 
 from openai import OpenAI
 
-API_BASE_URL = os.environ["API_BASE_URL"]
-API_KEY      = os.environ.get("HF_TOKEN") or os.environ["OPENAI_API_KEY"]
-MODEL_NAME   = os.environ["MODEL_NAME"]
-ENV_URL      = os.environ.get("ENV_URL", "http://localhost:7860")
+API_BASE_URL = os.getenv("API_BASE_URL", "<your-default>")
+MODEL_NAME = os.getenv("MODEL_NAME", "<your-default>")
+HF_TOKEN = os.getenv("HF_TOKEN")
+
+# Optional - if you use from_docker_image():
+LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
+
+ENV_URL = os.getenv("ENV_URL", "http://localhost:7860")
 
 MAX_STEPS   = 15
 TEMPERATURE = 0.2
@@ -137,6 +141,6 @@ def run_task(client: OpenAI, task_id: str) -> None:
 
 
 if __name__ == "__main__":
-    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+    client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
     for task in ["task1", "task2", "task3"]:
         run_task(client, task)

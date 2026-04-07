@@ -76,5 +76,5 @@ class TaskInfo(BaseModel):
 
 
 class ResetRequest(BaseModel):
-    task_id: str
+    task_id: str = "task1"
     seed: int = 42

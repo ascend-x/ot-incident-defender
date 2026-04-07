@@ -38,7 +38,9 @@ def read_root():
 
 
 @app.post("/reset", response_model=Observation)
-def reset(request: ResetRequest) -> Observation:
+def reset(request: ResetRequest = None) -> Observation:
+    if request is None:
+        request = ResetRequest()
     if request.task_id not in TASK_REGISTRY:
         raise HTTPException(
             status_code=400,

@@ -143,10 +143,9 @@ python -m pytest tests/ -v
 ## Running the Baseline Agent
 
 ```bash
-export API_BASE_URL=https://api.groq.com/openai/v1
-export HF_TOKEN=your_key_here
-export MODEL_NAME=llama-3.3-70b-versatile
-export ENV_URL=http://localhost:7860
+export ENV_URL=https://ascend-x-ot-incident-defender.hf.space
+export HF_TOKEN=your_huggingface_token
+# API_BASE_URL and MODEL_NAME are handled automatically by inference.py defaults
 
 python inference.py
 ```
@@ -192,13 +191,13 @@ Expected output format:
 
 ## Baseline Scores
 
-Baseline agent: `llama-3.3-70b-versatile` via Groq API, `temperature=0.2`, `seed=42`.
+Baseline agent: `meta-llama/Llama-3.3-70B-Instruct-Turbo` via Hugging Face Router, `temperature=0.2`, `seed=42`.
 
 | Task | Difficulty | Steps Used | Avg Step Reward | Grader Score |
 |------|-----------|-----------|----------------|-------------|
-| task1 — Oldsmar | Easy | 7–9 | 0.05–0.10 | 0.55–0.80 |
-| task2 — Ukraine | Medium | 15–20 | 0.03–0.06 | 0.20–0.50 |
-| task3 — FDI | Hard | 10–12 | 0.04–0.08 | 0.20–0.40 |
+| task1 — Oldsmar | Easy | 15 | 0.08–0.28 | 1.00 |
+| task2 — Ukraine | Medium | 20 | 0.06–0.27 | 1.00 |
+| task3 — FDI | Hard | 12 | 0.07–0.19 | 0.80 |
 
 > Grader scores reflect the deterministic end-of-episode rubric (0.0–1.0). Step rewards reflect the continuous-signal reward function (clipped to [−0.5, 1.0]).
 

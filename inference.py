@@ -72,9 +72,9 @@ _TASK_PROMPTS = {
            nothing, safety margin drops.
 
         KEY SEQUENCE:
-        - Steps 1-2: Wait, then close BREAKER_A after it opens at step 2
-        - Steps 3-4: Wait, then close BREAKER_B after it opens at step 4
-        - Steps 5-6: Wait, then close BREAKER_C after it opens at step 6
+        - Steps 1-2: Wait (action_type="no_op"), then close BREAKER_A after it opens at step 2
+        - Steps 3-4: Wait (action_type="no_op"), then close BREAKER_B after it opens at step 4
+        - Steps 5-6: Wait (action_type="no_op"), then close BREAKER_C after it opens at step 6
         - After all restored: write incident log
 
         Respond with ONLY a single JSON object with fields:
@@ -122,7 +122,7 @@ _DEFAULT_SYSTEM_PROMPT = textwrap.dedent("""
                    revert_to_last_good, switch_to_manual,
                    escalate_to_supervisor, write_log_entry, no_op]
       target: the specific alarm_id, tag name, breaker_id, or segment (string or null)
-      value: numeric value for setpoint changes (float or null)
+      value: numeric value for setpoint changes (must be a FLOAT or NULL). Do NOT put strings here!
       justification: your reasoning
 
     Respond with ONLY the JSON object. No markdown, no explanation outside the JSON.

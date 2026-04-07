@@ -120,36 +120,41 @@ def grade_task1(
     score = 0.0
 
     # --- +0.30: Setpoint/revert before step 8 ---
+    setpoint_credited = False
     for i, act in enumerate(action_history):
-        step_idx = i  # action_history index === step (first action is step 1)
+        step_idx = i
         if step_idx >= 8:
             break
         if act.action_type == "revert_to_last_good":
             score += 0.30
+            setpoint_credited = True
             break
-        if (
-            act.action_type == "send_setpoint"
-            and act.target == "NaOH_DOSE_PPM"
-            and act.value is not None
-            and act.value <= 111.0
-        ):
-            score += 0.30
-            break
+        if act.action_type == "send_setpoint" and act.value is not None and act.value <= 111.0:
+            # Accept any target that references NaOH (case-insensitive) or exact match
+            target = (act.target or "").upper()
+            if "NAOH" in target or target == "NAOH_DOSE_PPM":
+                score += 0.30
+                setpoint_credited = True
+                break
+    # Partial credit: if they sent a correct setpoint after step 8
+    if not setpoint_credited:
+        for act in action_history:
+            if act.action_type == "revert_to_last_good":
+                score += 0.15
+                break
+            if act.action_type == "send_setpoint" and act.value is not None and act.value <= 111.0:
+                score += 0.15
+                break
 
     # --- +0.20: Network isolation ---
     isolations = _actions_of_type(action_history, "isolate_network_segment")
     if isolations:
-        # Any isolation counts (TeamViewer is the only remote session)
         score += 0.20
 
     # --- +0.25: Acknowledge the first_out=True alarm ---
-    # Determine which alarm_ids are first_out in the final observation
     first_out_ids = {a.alarm_id for a in final_obs.alarms if a.first_out}
-    # But we need to check alarms at all steps — use task knowledge (ALM-NaOH-01 is first_out)
-    # Fall back: any ack on a P1 alarm that isn't the nuisance alarm
     acks = _actions_of_type(action_history, "acknowledge_alarm")
     for ack in acks:
-        # ALM-FLOW-01 is the nuisance alarm; ALM-NaOH-01 is the real root cause
         if ack.target and "NaOH" in ack.target.upper():
             score += 0.25
             break
@@ -246,12 +251,11 @@ def grade_task2(
 # Task 3 Grader — FDI Centrifuge
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-# Step at which RPM_ACTUAL would first exceed 1410 Hz (ramp of 28 Hz/step from 1064)
-# step 1: 1092, step 2: 1120, ... step 13: 1064 + 13*28 = 1428 > 1410
-# => must act before step 13; i.e. switch_to_manual by step 12 (last valid step)
-# Actually: 1064 + N*28 >= 1410 => N >= 346/28 ≈ 12.36 => breach at step 13 (beyond episode)
-# With manual at any step, decay prevents breach. Criterion: switch_to_manual before step 13.
-_BREACH_STEP_FDI = 13
+# Tighter criterion: full credit for very early manual control (before step 6),
+# partial credit (0.10) if before step 10, no credit if step 10+.
+# This ensures the "hard" task genuinely requires fast, decisive action.
+_EARLY_MANUAL_STEP = 6
+_LATE_MANUAL_STEP = 10
 
 
 def grade_task3(
@@ -279,12 +283,14 @@ def grade_task3(
             score += 0.20
             break
 
-    # --- +0.25: switch_to_manual before breach step ---
+    # --- +0.25: switch_to_manual — tiered credit based on speed ---
     manual_acts = [(i, a) for i, a in enumerate(action_history) if a.action_type == "switch_to_manual"]
     if manual_acts:
         first_manual_step = manual_acts[0][0] + 1  # 1-indexed
-        if first_manual_step < _BREACH_STEP_FDI:
-            score += 0.25
+        if first_manual_step <= _EARLY_MANUAL_STEP:
+            score += 0.25  # full credit for doing it fast
+        elif first_manual_step < _LATE_MANUAL_STEP:
+            score += 0.10  # partial credit — too slow for a hard task
 
     # --- +0.20: Correct RPM setpoint 900–1100 Hz ---
     setpoint_acts = _actions_of_type(action_history, "send_setpoint")

@@ -230,20 +230,20 @@ def _detect_first_correct(action: Action, state: dict, scenario_id: str) -> None
 
 def compute_step_reward(obs: Observation, action: Action, state: dict) -> float:
     r = 0.0
+    scenario = state.get("scenario_id", "")
+    max_steps = state.get("max_steps", 15)
 
-    # Safety margin — core signal every step
-    r += 0.04 * obs.safety_margin
+    # Safety margin — core signal every step (increased weight)
+    r += 0.06 * obs.safety_margin
 
     # First correct action bonus — decays with delay
     if state.get("first_correct_this_episode") and not state.get("first_correct_rewarded"):
-        max_steps = state.get("max_steps", 15)
         r += 0.15 * (1.0 - obs.step / max_steps)
         state["first_correct_rewarded"] = True
 
     # Correct alarm handling
     if action.action_type == "acknowledge_alarm":
         alarm_truth = state.get("alarm_truth", set())
-        # alarm_truth may be a set or dict
         if isinstance(alarm_truth, dict):
             is_real = alarm_truth.get(action.target, False)
         else:
@@ -262,14 +262,27 @@ def compute_step_reward(obs: Observation, action: Action, state: dict) -> float:
     if action.action_type == "send_setpoint":
         r += 0.08 * _setpoint_correctness(action, state)
 
+    # Network isolation reward (especially important for Task 1 and Task 3)
+    if action.action_type == "isolate_network_segment":
+        if scenario in ("task1_oldsmar", "task3_fdi"):
+            r += 0.10
+
+    # Breaker restoration reward (Task 2)
+    if action.action_type == "close_breaker" and scenario == "task2_ukraine":
+        if not state.get("secondary_fault_this_step", False):
+            r += 0.08  # successful breaker close
+
     # Log entry quality
     if action.action_type == "write_log_entry":
         r += 0.06 * _score_log_entry(action.justification, state)
 
+    # Time pressure: small penalty that grows with step count
+    r -= 0.005 * (obs.step / max_steps)
+
     # Penalties
     if _causes_secondary_fault(action, state):
         r -= 0.20
-    if action.action_type == "no_op" and obs.safety_margin < 0.3:
+    if action.action_type == "no_op" and obs.safety_margin < 0.5:
         r -= 0.08
 
     return float(np.clip(r, -0.5, 1.0))

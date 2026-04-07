@@ -98,15 +98,18 @@ Each observation contains:
 
 | Signal | Value |
 |--------|-------|
-| Safety margin each step | +0.04 × margin |
+| Safety margin each step | +0.06 × margin |
 | First correct action (decays) | +0.15 × (1 − step/max_steps) |
 | Correct alarm acknowledgement | +0.05 |
 | Wrong alarm acknowledgement | −0.10 |
 | Shelving a real alarm | −0.12 |
 | Correct setpoint | +0.08 × correctness |
+| Network isolation (Task 1, 3) | +0.10 |
+| Successful breaker close (Task 2) | +0.08 |
 | Quality log entry | +0.06 × quality |
+| Time pressure penalty | −0.005 × (step/max_steps) |
 | Secondary fault caused | −0.20 |
-| no_op at low safety | −0.08 |
+| no_op at low safety (<0.5) | −0.08 |
 | **Clip range** | [−0.5, 1.0] |
 
 Final episode score is computed by a deterministic grader (no LLM-as-judge).
@@ -140,9 +143,9 @@ python -m pytest tests/ -v
 ## Running the Baseline Agent
 
 ```bash
-export API_BASE_URL=https://api.openai.com/v1
+export API_BASE_URL=https://api.groq.com/openai/v1
 export HF_TOKEN=your_key_here
-export MODEL_NAME=gpt-4o
+export MODEL_NAME=llama-3.3-70b-versatile
 export ENV_URL=http://localhost:7860
 
 python inference.py
@@ -189,13 +192,13 @@ Expected output format:
 
 ## Baseline Scores
 
-Baseline agent: `gpt-4o` via OpenAI API, `temperature=0.2`, `seed=42`.
+Baseline agent: `llama-3.3-70b-versatile` via Groq API, `temperature=0.2`, `seed=42`.
 
 | Task | Difficulty | Steps Used | Avg Step Reward | Grader Score |
 |------|-----------|-----------|----------------|-------------|
-| task1 — Oldsmar | Easy | 8 | 0.18 | 0.70–0.75 |
-| task2 — Ukraine | Medium | 20 | 0.12 | 0.40–0.50 |
-| task3 — FDI | Hard | 12 | 0.08 | 0.20–0.35 |
+| task1 — Oldsmar | Easy | 7–9 | 0.05–0.10 | 0.55–0.80 |
+| task2 — Ukraine | Medium | 15–20 | 0.03–0.06 | 0.20–0.50 |
+| task3 — FDI | Hard | 10–12 | 0.04–0.08 | 0.20–0.40 |
 
 > Grader scores reflect the deterministic end-of-episode rubric (0.0–1.0). Step rewards reflect the continuous-signal reward function (clipped to [−0.5, 1.0]).
 

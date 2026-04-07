@@ -128,9 +128,11 @@ def run_task(client: OpenAI, task_id: str) -> None:
         )
 
         obs = result["observation"]
+        info = result["info"]
         step += 1
 
-    score = sum(rewards) / max(len(rewards), 1)
+    # Use the grader_score from the final step's info
+    score = info.get("grader_score", 0.0)
     log_end(success=done, steps=step, score=score, rewards=rewards)
 
 

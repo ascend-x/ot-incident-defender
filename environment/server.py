@@ -40,6 +40,17 @@ app.add_middleware(
 _env = OTIncidentEnv()
 
 
+@app.get("/")
+def read_root():
+    """Welcome page with basic instructions."""
+    return {
+        "message": "OT Incident Defender — OpenEnv Submission",
+        "scenarios": ["task1_oldsmar", "task2_ukraine", "task3_fdi"],
+        "docs": "/docs",
+        "health": "/health"
+    }
+
+
 @app.post("/reset", response_model=Observation)
 def reset(request: ResetRequest) -> Observation:
     """Reset the environment for a given task and seed. Returns initial observation."""

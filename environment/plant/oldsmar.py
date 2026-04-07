@@ -1,17 +1,3 @@
-"""
-oldsmar.py — Oldsmar Water Treatment Plant physics (Scenario 1).
-
-Real-world incident: February 2021, Oldsmar FL — attacker used TeamViewer to
-remotely access the SCADA system and changed the sodium hydroxide (NaOH)
-setpoint from 111 ppm to 11,100 ppm. An alert operator caught the change.
-
-Simulation:
-  - NaOH_DOSE_PPM: first-order dosing system. setpoint hijacked to 11100.
-  - REMOTE_SESSION_ACTIVE: True from step 0; cleared only by isolate_network_segment.
-  - FLOW_RATE_LPM: steady-state, slight noise.
-  - safety_margin = max(0.0, 1.0 - (naoh_ppm / 11100))
-  - Episode ends at step 15 or when naoh_ppm > 10000 (breach).
-"""
 from __future__ import annotations
 
 import random
@@ -23,25 +9,21 @@ from environment.models import (
 )
 from environment.plant.base import BasePlant
 
-# Plant constants
-SAFE_NAOH_PPM    = 111.0
-ATTACK_SETPOINT  = 11_100.0
-FLOW_NOMINAL_LPM = 3_785.0   # ~1 MGD
-MAX_STEPS        = 15
+SAFE_NAOH_PPM = 111.0
+ATTACK_SETPOINT = 11_100.0
+FLOW_NOMINAL_LPM = 3_785.0
+MAX_STEPS = 15
 BREACH_THRESHOLD = 10_000.0
-FIRST_ORDER_TAU  = 0.3       # fraction per step
+FIRST_ORDER_TAU = 0.3
 
-# Epoch anchor – Oldsmar incident date in plant-local EST
 _PLANT_EPOCH = datetime(2021, 2, 5, 14, 23, 0, tzinfo=timezone(timedelta(hours=-5)))
 
 
 class OldsmarPlant(BasePlant):
-    """Oldsmar chemical dosing plant physics."""
 
     def __init__(self, seed: int = 42) -> None:
         super().__init__(seed)
         self._rng = random.Random(seed)
-        # Mutable state
         self.naoh_ppm: float = SAFE_NAOH_PPM
         self.setpoint: float = SAFE_NAOH_PPM
         self.remote_active: bool = True
@@ -51,14 +33,9 @@ class OldsmarPlant(BasePlant):
         self._event_log: list[str] = []
         self._alarms: dict[str, AlarmRecord] = {}
         self._step_count: int = 0
-        self._manual_setpoint: float | None = None  # agent override
-
-    # ------------------------------------------------------------------ #
-    #  BasePlant interface                                                 #
-    # ------------------------------------------------------------------ #
+        self._manual_setpoint: float | None = None
 
     def reset(self) -> Observation:
-        """Fully deterministic reset."""
         self._rng = random.Random(self.seed)
         self.naoh_ppm = SAFE_NAOH_PPM
         self.setpoint = SAFE_NAOH_PPM
@@ -71,18 +48,14 @@ class OldsmarPlant(BasePlant):
         self._step_count = 0
         self._manual_setpoint = None
 
-        # Inject attack at step 0 — attacker sets the setpoint via remote session
         self.setpoint = ATTACK_SETPOINT
 
-        # Record the attack in the network log
         self._net_log: list[str] = [
             "[14:23:01] TeamViewer session opened from 185.220.101.34 -> SCADA_WS01",
         ]
 
-        # Create initial historian entries (pre-step baseline)
         self._record_historian()
 
-        # Create alarm: NaOH setpoint deviation
         self._raise_alarm(
             alarm_id="ALM-NaOH-01",
             tag="NaOH_DOSE_PPM",
@@ -107,7 +80,6 @@ class OldsmarPlant(BasePlant):
     def step(self, action: Action) -> tuple[Observation, float, bool, dict]:
         self._step_count += 1
 
-        # --- Apply action side-effects ---
         info: dict[str, Any] = {
             "naoh_ppm": self.naoh_ppm,
             "setpoint": self.setpoint,
@@ -116,30 +88,23 @@ class OldsmarPlant(BasePlant):
         }
         self._apply_action(action)
 
-        # --- Physics step ---
-        # If attacker still active (network not isolated), setpoint stays at attack value.
         effective_setpoint = self.setpoint
         if self.remote_active and not self.network_isolated:
             effective_setpoint = ATTACK_SETPOINT
 
-        # First-order system: x(t+1) = x(t) + (setpoint - x(t)) * tau
         noise = self._rng.gauss(0.0, 0.5)
         self.naoh_ppm += (effective_setpoint - self.naoh_ppm) * FIRST_ORDER_TAU + noise
         self.naoh_ppm = max(0.0, self.naoh_ppm)
 
-        # Flow rate slight variation
         self.flow_rate = FLOW_NOMINAL_LPM + self._rng.gauss(0.0, 10.0)
 
-        # Update historian
         self._record_historian()
 
-        # Update network log
         if self._step_count % 3 == 0 and self.remote_active and not self.network_isolated:
             self._net_log.append(
                 f"[{self._plant_time(self._step_count)}] TeamViewer keepalive from 185.220.101.34"
             )
 
-        # Check breach / done
         breach = self.naoh_ppm > BREACH_THRESHOLD
         done = breach or (self._step_count >= MAX_STEPS)
 
@@ -170,18 +135,12 @@ class OldsmarPlant(BasePlant):
             "safety_margin": max(0.0, 1.0 - (self.naoh_ppm / ATTACK_SETPOINT)),
         }
 
-    # ------------------------------------------------------------------ #
-    #  Private helpers                                                     #
-    # ------------------------------------------------------------------ #
-
     def _apply_action(self, action: Action) -> None:
         t = self._step_count
 
         if action.action_type == "isolate_network_segment":
-            # Any segment isolation terminates remote session
             self.network_isolated = True
             self.remote_active = False
-            # Once isolated, attacker can't push setpoint changes — revert if not already done
             if self._manual_setpoint is None:
                 self.setpoint = SAFE_NAOH_PPM
             self._event_log.append(
@@ -248,7 +207,7 @@ class OldsmarPlant(BasePlant):
         self._alarms[alarm_id] = AlarmRecord(
             alarm_id=alarm_id,
             tag=tag,
-            priority=priority,  # type: ignore[arg-type]
+            priority=priority,
             state="unacked",
             first_out=first_out,
             message=message,

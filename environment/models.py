@@ -1,6 +1,3 @@
-"""
-models.py — All Pydantic v2 models for OT Incident Defender.
-"""
 from __future__ import annotations
 
 from typing import Optional, Literal
@@ -8,8 +5,8 @@ from pydantic import BaseModel
 
 
 class HistorianEntry(BaseModel):
-    timestamp: str           # ISO8601 plant-local time
-    tag: str                 # e.g. "NaOH_DOSE_PPM", "RPM_REPORTED"
+    timestamp: str
+    tag: str
     value: float
     unit: str
     source: Literal["sensor", "controller", "manual_entry", "remote_session"]
@@ -18,15 +15,15 @@ class HistorianEntry(BaseModel):
 class AlarmRecord(BaseModel):
     alarm_id: str
     tag: str
-    priority: Literal["P1", "P2", "P3", "P4"]   # ISA-18.2 standard
+    priority: Literal["P1", "P2", "P3", "P4"]
     state: Literal["unacked", "acked", "shelved", "suppressed", "cleared"]
-    first_out: bool          # True = first alarm in cascade = root cause hint
+    first_out: bool
     message: str
 
 
 class HMIScreen(BaseModel):
     screen_id: str
-    available: bool          # False after KillDisk-style wipe in Task 2
+    available: bool
     tags_visible: list[str]
 
 
@@ -34,13 +31,13 @@ class Observation(BaseModel):
     step: int
     scenario_id: str
     plant_time: str
-    historian: list[HistorianEntry]   # last 20 entries
+    historian: list[HistorianEntry]
     alarms: list[AlarmRecord]
     hmi_screens: list[HMIScreen]
-    event_log: list[str]              # SOE / operator log lines
-    network_log: list[str]            # firewall and remote access events
-    safety_margin: float              # 0.0 = breach imminent, 1.0 = fully safe
-    blind_spots: list[str]            # tags currently unreadable
+    event_log: list[str]
+    network_log: list[str]
+    safety_margin: float
+    blind_spots: list[str]
 
 
 class Action(BaseModel):
@@ -57,9 +54,9 @@ class Action(BaseModel):
         "write_log_entry",
         "no_op"
     ]
-    target: Optional[str] = None     # alarm_id, tag, breaker_id, segment_id
-    value: Optional[float] = None    # for send_setpoint
-    justification: str               # agent must always explain — this is graded
+    target: Optional[str] = None
+    value: Optional[float] = None
+    justification: str
 
 
 class StepResult(BaseModel):

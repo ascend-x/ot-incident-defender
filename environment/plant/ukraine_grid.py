@@ -1,18 +1,3 @@
-"""
-ukraine_grid.py — Ukraine Power Grid attack physics (Scenario 2).
-
-Real-world incident: December 2015 — BlackEnergy3 malware + Industroyer
-operators opened each substation's breakers remotely, then wiped HMI systems
-with KillDisk, denying operators visibility.
-
-Simulation:
-  - 3 substations: A, B, C — each with a breaker (open/closed) and MW load.
-  - Attacker opens breaker A at step 2, B at step 4, C at step 6.
-  - At step 4, HMI for substation A is wiped (available=False).
-  - Closing the wrong breaker under load can cause a secondary fault.
-  - safety_margin = closed_breakers / 3.
-  - Episode ends at step 20.
-"""
 from __future__ import annotations
 
 import random
@@ -24,24 +9,21 @@ from environment.models import (
 )
 from environment.plant.base import BasePlant
 
-# Substations
 SUBSTATIONS = ["A", "B", "C"]
 LOADS_MW = {"A": 150.0, "B": 120.0, "C": 90.0}
 MAX_STEPS = 20
 
-# Attacker schedule: breaker open at step N
 ATTACKER_SCHEDULE = {2: "A", 4: "B", 6: "C"}
 
 _PLANT_EPOCH = datetime(2015, 12, 23, 15, 30, 0, tzinfo=timezone(timedelta(hours=2)))
 
 
 class UkraineGridPlant(BasePlant):
-    """Ukraine 2015 power grid substation attack physics."""
 
     def __init__(self, seed: int = 42) -> None:
         super().__init__(seed)
         self._rng = random.Random(seed)
-        self.breakers: dict[str, bool] = {}      # True = closed
+        self.breakers: dict[str, bool] = {}
         self.loads_mw: dict[str, float] = {}
         self.hmi_available: dict[str, bool] = {}
         self._historian: list[HistorianEntry] = []
@@ -52,7 +34,6 @@ class UkraineGridPlant(BasePlant):
         self._secondary_fault_occurred = False
         self._sequence_errors: list[str] = []
 
-    # ------------------------------------------------------------------ #
     def reset(self) -> Observation:
         self._rng = random.Random(self.seed)
         self.breakers = {s: True for s in SUBSTATIONS}
@@ -80,7 +61,6 @@ class UkraineGridPlant(BasePlant):
         self._step_count += 1
         t = self._step_count
 
-        # Attacker action at scheduled step
         attacker_target = ATTACKER_SCHEDULE.get(t)
         if attacker_target and self.breakers.get(attacker_target, False):
             self.breakers[attacker_target] = False
@@ -96,7 +76,6 @@ class UkraineGridPlant(BasePlant):
                 message=f"Substation {attacker_target}: breaker opened unexpectedly — loss of {LOADS_MW[attacker_target]:.0f} MW"
             )
 
-        # KillDisk wipe at step 4
         if t == 4:
             self.hmi_available["A"] = False
             self._event_log.append(
@@ -111,13 +90,10 @@ class UkraineGridPlant(BasePlant):
                 f"[{self._plant_time(t)}] KillDisk process started on SCADA-WS03"
             )
 
-        # Apply agent action
         secondary_fault = self._apply_action(action, t)
 
-        # Update historian
         self._record_historian()
 
-        # Update net log occasionally
         if t % 2 == 0:
             self._net_log.append(
                 f"[{self._plant_time(t)}] Firewall: anomalous traffic on SCADA VLAN"
@@ -153,9 +129,7 @@ class UkraineGridPlant(BasePlant):
             "max_steps": MAX_STEPS,
         }
 
-    # ------------------------------------------------------------------ #
     def _apply_action(self, action: Action, t: int) -> bool:
-        """Returns True if action caused a secondary fault."""
         secondary = False
 
         if action.action_type == "close_breaker":
@@ -165,14 +139,11 @@ class UkraineGridPlant(BasePlant):
                 return False
 
             if not self.breakers[target]:
-                # Check if closing into dead section (incorrect sequence)
-                # Safe order is A → B → C; closing B before A, or C before B, causes fault
                 wrong_order = self._is_wrong_order(target)
                 if wrong_order:
                     self._secondary_fault_occurred = True
                     self._sequence_errors.append(f"step={t} closed {target} out of order")
                     secondary = True
-                    # Secondary fault: the breaker closes but trips immediately
                     self._event_log.append(
                         f"[{self._plant_time(t)}] SECONDARY TRIP: Breaker {target} fault — "
                         f"closed into dead section"
@@ -182,7 +153,6 @@ class UkraineGridPlant(BasePlant):
                         first_out=False,
                         message=f"Substation {target}: Secondary fault — breaker closed out of sequence"
                     )
-                    # Breaker trips immediately back open
                 else:
                     self.breakers[target] = True
                     self.loads_mw[target] = LOADS_MW[target] + self._rng.gauss(0, 2.0)
@@ -190,7 +160,6 @@ class UkraineGridPlant(BasePlant):
                         f"[{self._plant_time(t)}] Breaker {target} CLOSED — "
                         f"restoring {self.loads_mw[target]:.1f} MW"
                     )
-                    # Clear the breaker alarm
                     alm_id = f"ALM-BRK-{target}"
                     if alm_id in self._alarms:
                         self._alarms[alm_id] = self._alarms[alm_id].model_copy(
@@ -243,20 +212,11 @@ class UkraineGridPlant(BasePlant):
         return secondary
 
     def _is_wrong_order(self, target: str) -> bool:
-        """
-        Correct restoration order is A → B → C.
-        A can always be closed (it's the main feeder).
-        B can only be closed if A is closed (energised).
-        C can only be closed if B is closed (energised).
-        Closing into an open/dead upstream breaker causes a secondary fault.
-        """
         if target == "A":
-            return False   # always safe to restore A first
+            return False
         if target == "B":
-            # B wrong if A is currently open (dead section above B)
             return not self.breakers["A"]
         if target == "C":
-            # C wrong if B is currently open
             return not self.breakers["B"]
         return False
 
@@ -266,7 +226,7 @@ class UkraineGridPlant(BasePlant):
     ) -> None:
         self._alarms[alarm_id] = AlarmRecord(
             alarm_id=alarm_id, tag=tag,
-            priority=priority,  # type: ignore[arg-type]
+            priority=priority,
             state="unacked", first_out=first_out, message=message
         )
 

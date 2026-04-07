@@ -1,14 +1,3 @@
-"""
-inference.py — Baseline agent for OT Incident Defender using OpenAI-compatible client.
-
-Mandatory for judging. Reads env vars:
-  API_BASE_URL — LLM API base URL
-  HF_TOKEN     — API key
-  MODEL_NAME   — model to use
-  ENV_URL      — environment URL (default: http://localhost:7860)
-
-Produces [START] / [STEP] / [END] logs in the exact required format.
-"""
 import os
 import textwrap
 import json
@@ -16,20 +5,20 @@ from typing import Optional, List
 
 from openai import OpenAI
 
-API_BASE_URL = os.getenv("API_BASE_URL", "<your-default>")
-MODEL_NAME = os.getenv("MODEL_NAME", "<your-default>")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/together/v1")
+MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Llama-3.3-70B-Instruct-Turbo")
 HF_TOKEN = os.getenv("HF_TOKEN")
 
-# Optional - if you use from_docker_image():
+if HF_TOKEN is None:
+    raise ValueError("HF_TOKEN environment variable is required")
+
 LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
 
 ENV_URL = os.getenv("ENV_URL", "http://localhost:7860")
 
-MAX_STEPS   = 20   # max across all tasks; episode will end via 'done' flag sooner
+MAX_STEPS = 20
 TEMPERATURE = 0.2
-MAX_TOKENS  = 512
-
-# ─── Task-specific system prompts ───────────────────────────────────────────
+MAX_TOKENS = 512
 
 _TASK_PROMPTS = {
     "task1": textwrap.dedent("""
@@ -163,7 +152,6 @@ def get_action(client: OpenAI, obs_json: str, history: List[str], task_id: str) 
             max_tokens=MAX_TOKENS,
         )
         text = (completion.choices[0].message.content or "").strip()
-        # Strip markdown code fences if the model wraps the JSON
         if text.startswith("```"):
             lines = text.split("\n")
             lines = [l for l in lines if not l.startswith("```")]
@@ -198,24 +186,21 @@ def run_task(client: OpenAI, task_id: str) -> None:
     while not done and step < MAX_STEPS:
         action_dict = get_action(client, json.dumps(obs), history, task_id)
 
-        # Ensure action_dict has all required fields for the Pydantic model
         action_dict.setdefault("target", None)
         action_dict.setdefault("value", None)
         action_dict.setdefault("justification", "")
 
         resp = requests.post(f"{ENV_URL}/step", json=action_dict)
 
-        # Handle HTTP errors (e.g. 422 validation error from bad action JSON)
         if resp.status_code != 200:
             print(f"[DEBUG] Step error ({resp.status_code}): {resp.text[:200]}", flush=True)
-            # Fall back to no_op
             fallback = {"action_type": "no_op", "target": None, "value": None,
                         "justification": "fallback after error"}
             resp = requests.post(f"{ENV_URL}/step", json=fallback)
 
         result = resp.json()
         reward = result.get("reward", 0.0)
-        done   = result.get("done", False)
+        done = result.get("done", False)
 
         rewards.append(reward)
         actual_action = action_dict.get("action_type", "no_op")
@@ -235,9 +220,8 @@ def run_task(client: OpenAI, task_id: str) -> None:
         info = result.get("info", {})
         step += 1
 
-    # Use the grader_score from the final step's info
-    score = info.get("grader_score", 0.0)
-    log_end(success=done, steps=step, score=score, rewards=rewards)
+    grader_score = info.get("grader_score", 0.0)
+    log_end(success=done, steps=step, score=grader_score, rewards=rewards)
 
 
 if __name__ == "__main__":

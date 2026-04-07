@@ -1,15 +1,3 @@
-"""
-server.py — FastAPI server exposing the OT Incident Defender environment.
-
-Endpoints:
-  POST /reset   — {"task_id": "task1", "seed": 42} -> Observation
-  POST /step    — Action JSON -> StepResult
-  GET  /state   — current internal state dict
-  GET  /tasks   — list of TaskInfo
-  GET  /health  — {"status": "ok"}
-
-Run: uvicorn environment.server:app --host 0.0.0.0 --port 7860
-"""
 from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException
@@ -36,13 +24,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Singleton environment instance (one session at a time)
 _env = OTIncidentEnv()
 
 
 @app.get("/")
 def read_root():
-    """Welcome page with basic instructions."""
     return {
         "message": "OT Incident Defender — OpenEnv Submission",
         "scenarios": ["task1_oldsmar", "task2_ukraine", "task3_fdi"],
@@ -53,7 +39,6 @@ def read_root():
 
 @app.post("/reset", response_model=Observation)
 def reset(request: ResetRequest) -> Observation:
-    """Reset the environment for a given task and seed. Returns initial observation."""
     if request.task_id not in TASK_REGISTRY:
         raise HTTPException(
             status_code=400,
@@ -65,7 +50,6 @@ def reset(request: ResetRequest) -> Observation:
 
 @app.post("/step", response_model=StepResult)
 def step(action: Action) -> StepResult:
-    """Apply an action to the environment. Returns StepResult with obs, reward, done, info."""
     try:
         result = _env.step(action)
     except RuntimeError as e:
@@ -75,24 +59,23 @@ def step(action: Action) -> StepResult:
 
 @app.get("/state")
 def state() -> dict:
-    """Return current internal state of the environment (including hidden plant state)."""
     return _env.get_state()
 
 
 @app.get("/tasks", response_model=list[TaskInfo])
 def tasks() -> list[TaskInfo]:
-    """Return list of all available tasks."""
     return list(TASK_REGISTRY.values())
 
 
 @app.get("/health")
 def health() -> dict:
-    """Health check endpoint."""
     return {"status": "ok"}
+
 
 def main():
     import uvicorn
     uvicorn.run("environment.server:app", host="0.0.0.0", port=7860)
+
 
 if __name__ == "__main__":
     main()

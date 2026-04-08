@@ -136,7 +136,8 @@ def grade_task1(
             score += 0.25
             break
 
-    return round(min(score, 1.0), 4)
+    score = round(score, 4)
+    return max(0.001, min(score, 0.999))
 
 
 def grade_task2(
@@ -187,7 +188,8 @@ def grade_task2(
     if all_restored and not secondary_occurred and steps_used <= 20:
         score += 0.30
 
-    return round(min(score, 1.0), 4)
+    score = round(score, 4)
+    return max(0.001, min(score, 0.999))
 
 
 _EARLY_MANUAL_STEP = 6
@@ -244,7 +246,8 @@ def grade_task3(
             score += 0.20
             break
 
-    return round(min(score, 1.0), 4)
+    score = round(score, 4)
+    return max(0.001, min(score, 0.999))
 
 
 GRADER_MAP = {
